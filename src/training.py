@@ -8,28 +8,20 @@ from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 import os
 
-# ================================
-# Load and prepare dataset
-# ================================
 dataset = load_iris()
 features, labels = dataset.data, dataset.target
 
-# Split into training and test sets (30% test for variation)
 X_train, X_test, y_train, y_test = train_test_split(
     features, labels, test_size=0.3, random_state=42, stratify=labels
 )
 
-# Ensure output folders exist
 os.makedirs("models", exist_ok=True)
 os.makedirs("results", exist_ok=True)
 
-# ================================
-# Logistic Regression Model
-# ================================
 log_model = LogisticRegression(
-    solver="liblinear",      # changed solver
-    C=0.8,                   # changed regularization strength
-    max_iter=300,            # increased iterations
+    solver="liblinear",     
+    C=0.8,                  
+    max_iter=300,           
     random_state=42
 )
 log_model.fit(X_train, y_train)
@@ -44,13 +36,10 @@ log_scores = [
 
 joblib.dump(log_model, "../models/log_reg_model.pkl")
 
-# ================================
-# Random Forest Model
-# ================================
 rf_model = RandomForestClassifier(
-    n_estimators=120,         # more trees
-    max_depth=6,              # restrict depth
-    min_samples_split=3,      # stricter split rule
+    n_estimators=120,        
+    max_depth=6,             
+    min_samples_split=3,     
     random_state=42
 )
 rf_model.fit(X_train, y_train)
@@ -65,13 +54,10 @@ rf_scores = [
 
 joblib.dump(rf_model, "../models/random_forest_model.pkl")
 
-# ================================
-# Support Vector Machine Model
-# ================================
 svm_model = SVC(
-    kernel="poly",           # polynomial kernel instead of rbf
-    degree=3,                # polynomial degree
-    C=2.0,                   # margin hardness
+    kernel="poly",         
+    degree=3,              
+    C=2.0,                 
     probability=True,
     random_state=42
 )
@@ -87,9 +73,6 @@ svm_scores = [
 
 joblib.dump(svm_model, "../models/svm_poly_model.pkl")
 
-# ================================
-# Compile and Save Results
-# ================================
 all_results = [
     ["Logistic Regression", *log_scores],
     ["Random Forest", *rf_scores],
