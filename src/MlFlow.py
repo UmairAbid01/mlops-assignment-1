@@ -13,13 +13,21 @@ from sklearn.svm import SVC
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 )
+mlflow.set_tracking_uri("file:../mlruns")   # ensures logging in project root
+mlflow.set_experiment("Iris Classification")  # all runs grouped here
 
+# ===============================
+# Load dataset
+# ===============================
 dataset = load_iris()
 features, labels = dataset.data, dataset.target
 X_train, X_test, y_train, y_test = train_test_split(
     features, labels, test_size=0.3, random_state=42, stratify=labels
 )
 
+# ===============================
+# Helper function for MLflow logging
+# ===============================
 def log_with_mlflow(model_name, model, params, y_true, y_pred, model_path):
     acc = accuracy_score(y_true, y_pred)
     prec = precision_score(y_true, y_pred, average="macro")
@@ -27,8 +35,10 @@ def log_with_mlflow(model_name, model, params, y_true, y_pred, model_path):
     f1 = f1_score(y_true, y_pred, average="macro")
 
     with mlflow.start_run(run_name=model_name):
+        # Log parameters
         mlflow.log_params(params)
 
+        # Log metrics
         mlflow.log_metrics({
             "accuracy": acc,
             "precision": prec,
@@ -36,9 +46,16 @@ def log_with_mlflow(model_name, model, params, y_true, y_pred, model_path):
             "f1_score": f1
         })
 
+        # Save locally
         joblib.dump(model, model_path)
-        mlflow.sklearn.log_model(model, model_name)
 
+        # ✅ Log model in MLflow (artifact_path must be simple)
+        mlflow.sklearn.log_model(
+            model,
+            artifact_path=model_name.replace(" ", "_")
+        )
+
+        # Confusion matrix plot
         cm = confusion_matrix(y_true, y_pred)
         plt.figure(figsize=(6, 4))
         sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
@@ -48,7 +65,8 @@ def log_with_mlflow(model_name, model, params, y_true, y_pred, model_path):
         plt.xlabel("Predicted")
         plt.ylabel("True")
 
-        cm_path = f"../results/{model_name}_confusion_matrix.png"
+        os.makedirs("../results", exist_ok=True)
+        cm_path = f"../results/{model_name.replace(' ', '_')}_confusion_matrix.png"
         plt.savefig(cm_path)
         plt.close()
 
@@ -57,10 +75,14 @@ def log_with_mlflow(model_name, model, params, y_true, y_pred, model_path):
     return [acc, prec, rec, f1]
 
 
+# ===============================
+# Train and log models
+# ===============================
+
+# Logistic Regression
 log_reg = LogisticRegression(solver="liblinear", C=0.8, max_iter=300, random_state=42)
 log_reg.fit(X_train, y_train)
 log_reg_pred = log_reg.predict(X_test)
-
 log_scores = log_with_mlflow(
     "Logistic Regression",
     log_reg,
@@ -70,10 +92,10 @@ log_scores = log_with_mlflow(
     "../models/log_reg_model.pkl"
 )
 
+# Random Forest
 rf = RandomForestClassifier(n_estimators=120, max_depth=6, min_samples_split=3, random_state=42)
 rf.fit(X_train, y_train)
 rf_pred = rf.predict(X_test)
-
 rf_scores = log_with_mlflow(
     "Random Forest",
     rf,
@@ -83,10 +105,10 @@ rf_scores = log_with_mlflow(
     "../models/random_forest_model.pkl"
 )
 
+# SVM
 svm = SVC(kernel="poly", degree=3, C=2.0, probability=True, random_state=42)
 svm.fit(X_train, y_train)
 svm_pred = svm.predict(X_test)
-
 svm_scores = log_with_mlflow(
     "SVM (Poly Kernel)",
     svm,
@@ -96,6 +118,9 @@ svm_scores = log_with_mlflow(
     "../models/svm_poly_model.pkl"
 )
 
+# ===============================
+# Save results comparison
+# ===============================
 all_results = [
     ["Logistic Regression", *log_scores],
     ["Random Forest", *rf_scores],
@@ -103,9 +128,10 @@ all_results = [
 ]
 
 results_df = pd.DataFrame(all_results, columns=["Model", "Accuracy", "Precision", "Recall", "F1-Score"])
+os.makedirs("../results", exist_ok=True)
 results_df.to_csv("../results/model_results.csv", index=False)
 
 print("\n=== Model Performance Comparison ===\n")
 print(results_df)
-print("\nResults saved to results/model_results.csv")
+print("\nResults saved to ../results/model_results.csv")
 print("\nYou can now open MLflow UI with: mlflow ui")
